@@ -9,13 +9,13 @@ from automation.jira.service import JiraService
 from automation.settings import JiraSettings
 from automation.utils import env_int, env_str, issue_url
 
-DEFAULT_PROJECT = "SREAUTO"
+DEFAULT_PROJECT = "PROJECT"
 DEFAULT_QUEUE_ID = 213
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="List open Jira tickets for a project (defaults to SREAUTO)."
+        description="List open Jira tickets for a project."
     )
     parser.add_argument(
         "--project",

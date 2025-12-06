@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "issues",
         nargs="*",
-        help="Issue keys or browse URLs (e.g. https://jira.snapp.ir/browse/SREAUTO-3208).",
+        help="Issue keys or browse URLs (e.g. https://jira.example.com/browse/PROJ-123).",
     )
     parser.add_argument(
         "-f",
