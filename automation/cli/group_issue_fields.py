@@ -10,13 +10,6 @@ from automation.jira.service import JiraService
 from automation.settings import JiraSettings
 from automation.utils import env_str, read_issue_keys
 
-DEFAULT_FIELD_PRIMARY = "Custom Field 1"
-DEFAULT_FIELD_SECONDARY = "Custom Field 2"
-
-DEFAULT_GROUP_A_LABEL = "Group A"
-DEFAULT_GROUP_B_LABEL = "Group B"
-DEFAULT_OTHER_LABEL = "Other/Unknown"
-
 
 def parse_args(config: dict) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -43,7 +36,6 @@ def parse_args(config: dict) -> argparse.Namespace:
     field_primary_default = (
         env_str("JIRA_FIELD_PRIMARY")
         or config_get(config, "defaults.field_primary")
-        or DEFAULT_FIELD_PRIMARY
     )
     parser.add_argument(
         "--field-primary",
@@ -57,7 +49,6 @@ def parse_args(config: dict) -> argparse.Namespace:
     field_secondary_default = (
         env_str("JIRA_FIELD_SECONDARY")
         or config_get(config, "defaults.field_secondary")
-        or DEFAULT_FIELD_SECONDARY
     )
     parser.add_argument(
         "--field-secondary",
@@ -71,8 +62,7 @@ def parse_args(config: dict) -> argparse.Namespace:
     parser.add_argument(
         "--group-a-label",
         default=env_str("JIRA_GROUP_A_LABEL")
-        or config_get(config, "defaults.group_a_label")
-        or DEFAULT_GROUP_A_LABEL,
+        or config_get(config, "defaults.group_a_label"),
         help="Display label for first match group (env: JIRA_GROUP_A_LABEL).",
     )
     parser.add_argument(
@@ -88,8 +78,7 @@ def parse_args(config: dict) -> argparse.Namespace:
     parser.add_argument(
         "--group-b-label",
         default=env_str("JIRA_GROUP_B_LABEL")
-        or config_get(config, "defaults.group_b_label")
-        or DEFAULT_GROUP_B_LABEL,
+        or config_get(config, "defaults.group_b_label"),
         help="Display label for second match group (env: JIRA_GROUP_B_LABEL).",
     )
     parser.add_argument(
@@ -105,8 +94,7 @@ def parse_args(config: dict) -> argparse.Namespace:
     parser.add_argument(
         "--label-other",
         default=env_str("JIRA_LABEL_OTHER")
-        or config_get(config, "defaults.label_other")
-        or DEFAULT_OTHER_LABEL,
+        or config_get(config, "defaults.label_other"),
         help="Display label for unmatched group (env: JIRA_LABEL_OTHER).",
     )
     return parser.parse_args()
@@ -115,6 +103,19 @@ def parse_args(config: dict) -> argparse.Namespace:
 def main() -> int:
     config = load_config()
     args = parse_args(config)
+    if not args.field_primary or not args.field_secondary:
+        print(
+            "Both --field-primary and --field-secondary are required "
+            "(or set via config.json / env).",
+            file=sys.stderr,
+        )
+        return 1
+    if not args.group_a_label or not args.group_b_label or not args.label_other:
+        print(
+            "Labels for group A/B and other are required (set via flags, env, or config).",
+            file=sys.stderr,
+        )
+        return 1
     try:
         issue_keys = read_issue_keys(args.issues, args.file)
     except RuntimeError as exc:
