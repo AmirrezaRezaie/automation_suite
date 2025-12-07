@@ -4,16 +4,14 @@ from __future__ import annotations
 import argparse
 import sys
 
+from automation.config import config_get, load_config, resolve_env_or_config
 from automation.jira.client import IntegrationError, connect_jira
 from automation.jira.service import JiraService
 from automation.settings import JiraSettings
-from automation.utils import env_int, env_str, issue_url, read_issue_keys
-
-DEFAULT_TARGET_STATUS = "Resolved this issue"
-DEFAULT_REQUIRED_STATUS = "Waiting for support"
+from automation.utils import env_str, issue_url, read_issue_keys
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(config: dict) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Move Jira tickets from a specific status to a target status."
     )
@@ -30,24 +28,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout",
         type=int,
-        default=env_int("JIRA_TIMEOUT"),
+        default=resolve_env_or_config(
+            "JIRA_TIMEOUT", config, "jira.timeout", cast=int
+        ),
         help="Override Jira connection timeout in seconds (env: JIRA_TIMEOUT).",
+    )
+    only_status_default = env_str("JIRA_ONLY_STATUS") or config_get(
+        config, "defaults.only_status"
     )
     parser.add_argument(
         "--only-status",
-        default=env_str("JIRA_ONLY_STATUS") or DEFAULT_REQUIRED_STATUS,
-        help="Only transition tickets currently in this status (default: %(default)s).",
+        default=only_status_default,
+        help="Only transition tickets currently in this status (env: JIRA_ONLY_STATUS).",
+    )
+    target_status_default = env_str("JIRA_TARGET_STATUS") or config_get(
+        config, "defaults.target_status"
     )
     parser.add_argument(
         "--target-status",
-        default=env_str("JIRA_TARGET_STATUS") or DEFAULT_TARGET_STATUS,
-        help="Name of the status to transition to (default: %(default)s).",
+        default=target_status_default,
+        help="Name of the status to transition to (required; env: JIRA_TARGET_STATUS).",
     )
     return parser.parse_args()
 
 
 def main() -> int:
-    args = parse_args()
+    config = load_config()
+    args = parse_args(config)
+    if not args.target_status:
+        print("Target status is required. Pass --target-status or set JIRA_TARGET_STATUS.", file=sys.stderr)
+        return 1
     try:
         issue_keys = read_issue_keys(args.issues, args.file)
     except RuntimeError as exc:

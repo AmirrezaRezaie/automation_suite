@@ -4,10 +4,11 @@ from __future__ import annotations
 import argparse
 import sys
 
+from automation.config import config_get, load_config, resolve_env_or_config
 from automation.jira.client import IntegrationError, connect_jira
 from automation.jira.service import JiraService
 from automation.settings import JiraSettings
-from automation.utils import env_int, env_str, read_issue_keys
+from automation.utils import env_str, read_issue_keys
 
 DEFAULT_FIELD_PRIMARY = "Custom Field 1"
 DEFAULT_FIELD_SECONDARY = "Custom Field 2"
@@ -17,7 +18,7 @@ DEFAULT_GROUP_B_LABEL = "Group B"
 DEFAULT_OTHER_LABEL = "Other/Unknown"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(config: dict) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Fetch two Jira fields for issues and group results by keywords."
     )
@@ -34,22 +35,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout",
         type=int,
-        default=env_int("JIRA_TIMEOUT"),
+        default=resolve_env_or_config(
+            "JIRA_TIMEOUT", config, "jira.timeout", cast=int
+        ),
         help="Override Jira connection timeout in seconds (env: JIRA_TIMEOUT).",
+    )
+    field_primary_default = (
+        env_str("JIRA_FIELD_PRIMARY")
+        or config_get(config, "defaults.field_primary")
+        or DEFAULT_FIELD_PRIMARY
     )
     parser.add_argument(
         "--field-primary",
         dest="field_primary",
-        default=env_str("JIRA_FIELD_PRIMARY") or DEFAULT_FIELD_PRIMARY,
+        default=field_primary_default,
         help=(
             "Jira field name for the primary value to display "
             "(env: JIRA_FIELD_PRIMARY; default: %(default)s)."
         ),
     )
+    field_secondary_default = (
+        env_str("JIRA_FIELD_SECONDARY")
+        or config_get(config, "defaults.field_secondary")
+        or DEFAULT_FIELD_SECONDARY
+    )
     parser.add_argument(
         "--field-secondary",
         dest="field_secondary",
-        default=env_str("JIRA_FIELD_SECONDARY") or DEFAULT_FIELD_SECONDARY,
+        default=field_secondary_default,
         help=(
             "Jira field name used for grouping with keywords "
             "(env: JIRA_FIELD_SECONDARY; default: %(default)s)."
@@ -57,7 +70,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--group-a-label",
-        default=env_str("JIRA_GROUP_A_LABEL") or DEFAULT_GROUP_A_LABEL,
+        default=env_str("JIRA_GROUP_A_LABEL")
+        or config_get(config, "defaults.group_a_label")
+        or DEFAULT_GROUP_A_LABEL,
         help="Display label for first match group (env: JIRA_GROUP_A_LABEL).",
     )
     parser.add_argument(
@@ -72,7 +87,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--group-b-label",
-        default=env_str("JIRA_GROUP_B_LABEL") or DEFAULT_GROUP_B_LABEL,
+        default=env_str("JIRA_GROUP_B_LABEL")
+        or config_get(config, "defaults.group_b_label")
+        or DEFAULT_GROUP_B_LABEL,
         help="Display label for second match group (env: JIRA_GROUP_B_LABEL).",
     )
     parser.add_argument(
@@ -87,14 +104,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--label-other",
-        default=env_str("JIRA_LABEL_OTHER") or DEFAULT_OTHER_LABEL,
+        default=env_str("JIRA_LABEL_OTHER")
+        or config_get(config, "defaults.label_other")
+        or DEFAULT_OTHER_LABEL,
         help="Display label for unmatched group (env: JIRA_LABEL_OTHER).",
     )
     return parser.parse_args()
 
 
 def main() -> int:
-    args = parse_args()
+    config = load_config()
+    args = parse_args(config)
     try:
         issue_keys = read_issue_keys(args.issues, args.file)
     except RuntimeError as exc:
@@ -108,10 +128,14 @@ def main() -> int:
     group_a_label = args.group_a_label
     group_b_label = args.group_b_label
     group_a_keywords = _merge_keywords(
-        env_str("JIRA_GROUP_A_KEYWORDS"), args.group_a_keywords
+        env_str("JIRA_GROUP_A_KEYWORDS")
+        or config_get(config, "defaults.group_a_keywords"),
+        args.group_a_keywords,
     )
     group_b_keywords = _merge_keywords(
-        env_str("JIRA_GROUP_B_KEYWORDS"), args.group_b_keywords
+        env_str("JIRA_GROUP_B_KEYWORDS")
+        or config_get(config, "defaults.group_b_keywords"),
+        args.group_b_keywords,
     )
     try:
         with connect_jira(settings) as client:
@@ -179,13 +203,21 @@ def _normalize_value(raw_value) -> str | None:
     return str(raw_value)
 
 
-def _merge_keywords(env_value: str | None, cli_values: list[str] | None) -> list[str]:
+def _merge_keywords(default_value, cli_values: list[str] | None) -> list[str]:
     tokens: list[str] = []
-    tokens.extend(_split_keywords(env_value))
+    tokens.extend(_normalize_keywords(default_value))
     if cli_values:
         for raw in cli_values:
             tokens.extend(_split_keywords(raw))
     return tokens
+
+
+def _normalize_keywords(raw) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple, set)):
+        return [str(item).strip().lower() for item in raw if str(item).strip()]
+    return _split_keywords(str(raw))
 
 
 def _split_keywords(raw: str | None) -> list[str]:

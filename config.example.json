@@ -1,0 +1,30 @@
+{
+  "jira": {
+    "base_url": "https://your-domain.atlassian.net",
+    "username": "your-username",
+    "password": "your-api-token",
+    "timeout": 30
+  },
+  "defaults": {
+    "project": "PROJECT",
+    "queue_id": "123",
+    "service_desk_id": 1,
+    "list_statuses": [
+      "Waiting for support",
+      "Open"
+    ],
+    "field_primary": "Custom Field 1",
+    "field_secondary": "Custom Field 2",
+    "group_a_label": "Group A",
+    "group_a_keywords": [
+      "alpha"
+    ],
+    "group_b_label": "Group B",
+    "group_b_keywords": [
+      "beta"
+    ],
+    "label_other": "Other/Unknown",
+    "only_status": "Waiting for support",
+    "target_status": "Resolved"
+  }
+}
