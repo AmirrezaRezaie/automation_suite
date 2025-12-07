@@ -28,7 +28,7 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
 - List open issues in a queue (filter by multiple statuses):
   ```bash
   python3 -m automation.cli.list_issues \
-    --project PROJ \
+    --project SREAUTO \
     --queue-id 213 \
     --status "Waiting for Support" \
     --status "Waiting"
@@ -38,12 +38,12 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
   ```bash
   python3 -m automation.cli.transition_status \
     --target-status "Resolved" \
-    PROJ-3208 PROJ-3210
+    SREAUTO-3208 SREAUTO-3210
   ```
 
-- Fetch and group arbitrary fields for issues:
+- Fetch monitoring dependencies for an issue:
   ```bash
-  python3 -m automation.cli.group_issue_fields PROJ-123
+  python3 -m automation.cli.monitoring_deps SREAUTO-3208
   ```
 
 Add `--help` to any script for all flags. All scripts are short and extensible; to add Confluence or other services, create a new service under `automation/`.
