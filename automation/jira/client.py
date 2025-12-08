@@ -65,7 +65,7 @@ class JiraClient:
     def __init__(self, *, base_url: str, username: str, password: str, timeout: int | None = None):
         if not base_url or not username or not password:
             raise IntegrationError("JIRA_BASE_URL, JIRA_USERNAME, and JIRA_PASSWORD are required.")
-        self.base_url = base_url.rstrip("/")
+        self.base_url = self._ensure_scheme(base_url).rstrip("/")
         self.username = username
         self.password = password
         self.timeout = timeout or 10
@@ -196,6 +196,12 @@ class JiraClient:
         except ValueError:
             pass
         return f"Jira API call failed ({response.status_code})"
+
+    @staticmethod
+    def _ensure_scheme(url: str) -> str:
+        if url.startswith(("http://", "https://")):
+            return url
+        return f"https://{url}"
 
 
 @contextlib.contextmanager

@@ -23,7 +23,7 @@ class ConfluenceClient:
             raise ConfluenceError(
                 "CONFLUENCE_BASE_URL, CONFLUENCE_USERNAME, and CONFLUENCE_PASSWORD are required."
             )
-        self.base_url = base_url.rstrip("/")
+        self.base_url = self._ensure_scheme(base_url).rstrip("/")
         self.username = username
         self.password = password
         self.timeout = timeout or 10
@@ -107,6 +107,12 @@ class ConfluenceClient:
         except ValueError:
             pass
         return f"Confluence API call failed ({response.status_code})"
+
+    @staticmethod
+    def _ensure_scheme(url: str) -> str:
+        if url.startswith(("http://", "https://")):
+            return url
+        return f"https://{url}"
 
 
 @contextlib.contextmanager

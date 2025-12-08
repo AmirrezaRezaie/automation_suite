@@ -86,4 +86,26 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/123456/Parent+Page
   ```
 
+- Fetch Jira issues referenced in a Confluence macro and update labels:
+  ```bash
+  python3 -m automation.cli.confluence_labeler \
+    --macro jira \
+    --is-parent \
+    --issue-type "Task" \
+    --add-label report_label \
+    464175603
+  ```
+  Defaults can be set under `defaults.confluence_labeler` in `config.json`:
+  ```json
+  "defaults": {
+    "confluence_labeler": {
+      "macro": "jira",
+      "add_labels": ["report_label"],
+      "remove_labels": [],
+      "issue_type": "Task"
+    }
+  }
+  ```
+  Env overrides: `CONFLUENCE_LABEL_MACRO`, `CONFLUENCE_LABEL_ADD`, `CONFLUENCE_LABEL_REMOVE`, `CONFLUENCE_LABEL_ISSUE_TYPE`.
+
 Add `--help` to any script for all flags. All scripts are short and extensible; to add Confluence or other services, create a new service under `automation/`.

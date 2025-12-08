@@ -53,6 +53,10 @@ class JiraService:
     def get_issue(self, issue_key: str):
         return self.client.get_issue(issue_key)
 
+    def search_issue_keys(self, *, jql: str, max_results: int = 50) -> list[str]:
+        issues = self.client.search_issues(jql=jql, max_results=max_results)
+        return [issue.key for issue in issues if issue.key]
+
     def fetch_issue_fields(
         self,
         issue_keys: Iterable[str],

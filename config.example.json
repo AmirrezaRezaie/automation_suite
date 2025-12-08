@@ -50,6 +50,14 @@
       "summary": "Updated by automation",
       "assignee": "<accountId>",
       "issue_type": "Sub-task"
+    },
+    "confluence_labeler": {
+      "macro": "jira",
+      "add_labels": [
+        "report_label"
+      ],
+      "remove_labels": [],
+      "issue_type": "Task"
     }
   }
 }
