@@ -5,11 +5,11 @@ import argparse
 import sys
 from typing import Iterable
 
-from automation.config import load_config, resolve_env_or_config
+from automation.config import config_get, load_config, resolve_env_or_config
 from automation.jira.client import IntegrationError, connect_jira
 from automation.jira.service import JiraService
 from automation.settings import JiraSettings
-from automation.utils import read_issue_keys
+from automation.utils import env_str, read_issue_keys
 
 
 def _parse_field_assignments(raw_values: Iterable[str] | None) -> dict:
@@ -28,6 +28,42 @@ def _parse_field_assignments(raw_values: Iterable[str] | None) -> dict:
             continue
         assignments[key] = value.strip()
     return assignments
+
+
+def _split_tokens(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    tokens = []
+    for part in raw.split(","):
+        token = part.strip()
+        if token:
+            tokens.append(token)
+    return tokens
+
+
+def _merge_labels(config_value, env_raw: str | None, cli_values: Iterable[str] | None) -> list[str]:
+    merged: list[str] = []
+    if isinstance(config_value, (list, tuple, set)):
+        merged.extend(str(item).strip() for item in config_value if str(item).strip())
+    elif config_value:
+        merged.extend(_split_tokens(str(config_value)))
+    merged.extend(_split_tokens(env_raw))
+    if cli_values:
+        merged.extend([value for value in cli_values if value])
+    # Preserve order but drop empties
+    return [value for value in merged if value]
+
+
+def _merge_fields(config_fields, env_raw: str | None, cli_values: Iterable[str] | None) -> dict:
+    merged: dict[str, str] = {}
+    if isinstance(config_fields, dict):
+        merged.update({str(k): str(v) for k, v in config_fields.items() if str(k).strip()})
+    elif config_fields:
+        merged.update(_parse_field_assignments(_split_tokens(str(config_fields))))
+    merged.update(_parse_field_assignments(_split_tokens(env_raw)))
+    if cli_values:
+        merged.update(_parse_field_assignments(cli_values))
+    return merged
 
 
 def parse_args(config: dict) -> argparse.Namespace:
@@ -88,17 +124,45 @@ def main() -> int:
     config = load_config()
     args = parse_args(config)
 
+    default_add_labels = config_get(config, "defaults.update.add_labels")
+    default_remove_labels = config_get(config, "defaults.update.remove_labels")
+    default_fields = config_get(config, "defaults.update.fields")
+    default_summary = config_get(config, "defaults.update.summary")
+    default_assignee = config_get(config, "defaults.update.assignee")
+
+    add_labels = _merge_labels(
+        default_add_labels,
+        env_str("JIRA_UPDATE_ADD_LABELS"),
+        args.add_labels,
+    )
+    remove_labels = _merge_labels(
+        default_remove_labels,
+        env_str("JIRA_UPDATE_REMOVE_LABELS"),
+        args.remove_labels,
+    )
+    field_updates = _merge_fields(
+        default_fields,
+        env_str("JIRA_UPDATE_FIELDS"),
+        args.fields,
+    )
+    summary = args.set_summary or env_str("JIRA_UPDATE_SUMMARY") or default_summary
+    assignee = args.assignee or env_str("JIRA_UPDATE_ASSIGNEE") or default_assignee
+
     actions = any(
         [
-            args.add_labels,
-            args.remove_labels,
-            args.set_summary,
-            args.fields,
-            args.assignee,
+            add_labels,
+            remove_labels,
+            summary,
+            field_updates,
+            assignee,
         ]
     )
     if not actions:
-        print("No updates specified. Use --add-label/--remove-label/--set-summary/--set-field/--assignee.", file=sys.stderr)
+        print(
+            "No updates specified. Use config/defaults or flags: "
+            "--add-label/--remove-label/--set-summary/--set-field/--assignee.",
+            file=sys.stderr,
+        )
         return 1
 
     try:
@@ -108,13 +172,6 @@ def main() -> int:
         return 1
 
     settings = JiraSettings.from_env(timeout=args.timeout)
-    field_updates = _parse_field_assignments(args.fields)
-    if args.set_summary:
-        field_updates["summary"] = args.set_summary
-
-    add_labels = args.add_labels or []
-    remove_labels = args.remove_labels or []
-    assignee = args.assignee
 
     try:
         with connect_jira(settings) as client:
@@ -126,6 +183,8 @@ def main() -> int:
                 try:
                     if field_updates:
                         service.update_fields(key, field_updates)
+                    if summary:
+                        service.update_fields(key, {"summary": summary})
                     if add_labels or remove_labels:
                         service.update_labels(key, add=add_labels, remove=remove_labels)
                     if assignee:

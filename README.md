@@ -60,6 +60,20 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     --assignee "<accountId>" \
     PROJ-123 PROJ-456
   ```
+  You can predefine defaults in `config.json` under `defaults.update`:
+  ```json
+  "defaults": {
+    "update": {
+      "add_labels": ["oncall"],
+      "remove_labels": ["backlog"],
+      "fields": { "Custom Field 1": "Value" },
+      "summary": "Updated by automation",
+      "assignee": "<accountId>"
+    }
+  }
+  ```
+  Env overrides are supported:
+  `JIRA_UPDATE_ADD_LABELS`, `JIRA_UPDATE_REMOVE_LABELS`, `JIRA_UPDATE_FIELDS` (comma `KEY=VAL` list), `JIRA_UPDATE_SUMMARY`, `JIRA_UPDATE_ASSIGNEE`.
 
 - Fetch a section or macro contents from Confluence (optionally across child pages):
   ```bash

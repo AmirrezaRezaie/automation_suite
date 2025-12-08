@@ -36,6 +36,19 @@
     ],
     "label_other": "Other/Unknown",
     "only_status": "Waiting for support",
-    "target_status": "Resolved"
+    "target_status": "Resolved",
+    "update": {
+      "add_labels": [
+        "oncall"
+      ],
+      "remove_labels": [
+        "backlog"
+      ],
+      "fields": {
+        "Custom Field 1": "Value"
+      },
+      "summary": "Updated by automation",
+      "assignee": "<accountId>"
+    }
   }
 }
