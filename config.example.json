@@ -48,7 +48,8 @@
         "Custom Field 1": "Value"
       },
       "summary": "Updated by automation",
-      "assignee": "<accountId>"
+      "assignee": "<accountId>",
+      "issue_type": "Sub-task"
     }
   }
 }

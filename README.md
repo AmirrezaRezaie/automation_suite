@@ -58,6 +58,7 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     --set-summary "New summary text" \
     --set-field "Custom Field 1=Some value" \
     --assignee "<accountId>" \
+    --issue-type "Sub-task" \
     PROJ-123 PROJ-456
   ```
   You can predefine defaults in `config.json` under `defaults.update`:
@@ -68,12 +69,13 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
       "remove_labels": ["backlog"],
       "fields": { "Custom Field 1": "Value" },
       "summary": "Updated by automation",
-      "assignee": "<accountId>"
+      "assignee": "<accountId>",
+      "issue_type": "Sub-task"
     }
   }
   ```
   Env overrides are supported:
-  `JIRA_UPDATE_ADD_LABELS`, `JIRA_UPDATE_REMOVE_LABELS`, `JIRA_UPDATE_FIELDS` (comma `KEY=VAL` list), `JIRA_UPDATE_SUMMARY`, `JIRA_UPDATE_ASSIGNEE`.
+  `JIRA_UPDATE_ADD_LABELS`, `JIRA_UPDATE_REMOVE_LABELS`, `JIRA_UPDATE_FIELDS` (comma `KEY=VAL` list), `JIRA_UPDATE_SUMMARY`, `JIRA_UPDATE_ASSIGNEE`, `JIRA_UPDATE_ISSUE_TYPE`.
 
 - Fetch a section or macro contents from Confluence (optionally across child pages):
   ```bash

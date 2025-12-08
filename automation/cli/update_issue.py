@@ -117,6 +117,11 @@ def parse_args(config: dict) -> argparse.Namespace:
         "--assignee",
         help="Set assignee by accountId.",
     )
+    parser.add_argument(
+        "--issue-type",
+        dest="issue_type",
+        help="Only update issues matching this issue type (e.g. Task, Sub-task).",
+    )
     return parser.parse_args()
 
 
@@ -129,6 +134,7 @@ def main() -> int:
     default_fields = config_get(config, "defaults.update.fields")
     default_summary = config_get(config, "defaults.update.summary")
     default_assignee = config_get(config, "defaults.update.assignee")
+    default_issue_type = config_get(config, "defaults.update.issue_type")
 
     add_labels = _merge_labels(
         default_add_labels,
@@ -147,6 +153,8 @@ def main() -> int:
     )
     summary = args.set_summary or env_str("JIRA_UPDATE_SUMMARY") or default_summary
     assignee = args.assignee or env_str("JIRA_UPDATE_ASSIGNEE") or default_assignee
+    issue_type = args.issue_type or env_str("JIRA_UPDATE_ISSUE_TYPE") or default_issue_type
+    issue_type_normalized = issue_type.lower() if issue_type else None
 
     actions = any(
         [
@@ -178,9 +186,16 @@ def main() -> int:
             service = JiraService(client, settings.base_url)
             successes: list[str] = []
             failures: list[tuple[str, str]] = []
+            skipped: list[str] = []
 
             for key in issue_keys:
                 try:
+                    if issue_type_normalized:
+                        issue = service.get_issue(key)
+                        current_type = (issue.issue_type or "").lower()
+                        if current_type != issue_type_normalized:
+                            skipped.append(key)
+                            continue
                     if field_updates:
                         service.update_fields(key, field_updates)
                     if summary:
@@ -198,6 +213,10 @@ def main() -> int:
 
     if successes:
         print(f"Updated {len(successes)} issue(s): {', '.join(successes)}")
+    if skipped:
+        print(
+            f"Skipped {len(skipped)} issue(s) that did not match type '{issue_type}': {', '.join(skipped)}"
+        )
     if failures:
         print("Failed updates:", file=sys.stderr)
         for key, reason in failures:

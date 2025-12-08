@@ -30,6 +30,13 @@ class JiraIssue:
             return status_field.get("name")
         return None
 
+    @property
+    def issue_type(self) -> str | None:
+        issue_type_field = self.fields.get("issuetype") or {}
+        if isinstance(issue_type_field, dict):
+            return issue_type_field.get("name")
+        return None
+
     def get(self, field_name: str):
         """Return a field value by Jira display name or raw field id."""
         if field_name in self.fields:
