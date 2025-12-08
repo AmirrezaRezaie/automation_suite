@@ -115,6 +115,31 @@ class JiraClient:
             json={"transition": {"id": target_id}},
         )
 
+    def update_issue(
+        self,
+        key: str,
+        *,
+        fields: dict | None = None,
+        updates: dict | None = None,
+    ) -> None:
+        if not fields and not updates:
+            raise IntegrationError("No updates provided for issue edit.")
+        payload: dict = {}
+        if fields:
+            payload["fields"] = fields
+        if updates:
+            payload["update"] = updates
+        self._request("PUT", f"/rest/api/2/issue/{key}", json=payload)
+
+    def assign_issue(self, key: str, account_id: str) -> None:
+        if not account_id:
+            raise IntegrationError("Assignee account id is required.")
+        self._request(
+            "PUT",
+            f"/rest/api/2/issue/{key}/assignee",
+            json={"accountId": account_id},
+        )
+
     def resolve_field_id(self, field_name: str) -> str | None:
         """Map a human-friendly field name to its Jira field id."""
         if not field_name:

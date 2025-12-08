@@ -102,6 +102,42 @@ class JiraService:
         after = issue.status or target_status
         return before, after, True
 
+    # ----- Update issues --------------------------------------------------
+    def update_fields(self, issue_key: str, fields_by_name: dict) -> None:
+        """
+        Update issue fields by display name or field id.
+        """
+        if not fields_by_name:
+            return
+        resolved: dict = {}
+        for name, value in fields_by_name.items():
+            if not name:
+                continue
+            field_id = self.client.resolve_field_id(name) or name
+            resolved[field_id] = value
+        if not resolved:
+            raise IntegrationError("No valid fields to update.")
+        self.client.update_issue(issue_key, fields=resolved, updates=None)
+
+    def update_labels(
+        self,
+        issue_key: str,
+        *,
+        add: list[str] | None = None,
+        remove: list[str] | None = None,
+    ) -> None:
+        updates: list = []
+        add_list = [label for label in (add or []) if label]
+        remove_list = [label for label in (remove or []) if label]
+        updates.extend({"add": label} for label in add_list)
+        updates.extend({"remove": label} for label in remove_list)
+        if not updates:
+            return
+        self.client.update_issue(issue_key, fields=None, updates={"labels": updates})
+
+    def assign_issue(self, issue_key: str, account_id: str) -> None:
+        self.client.assign_issue(issue_key, account_id)
+
     # ----- Service desk helpers -------------------------------------------
     def _fetch_queue_issues(
         self,

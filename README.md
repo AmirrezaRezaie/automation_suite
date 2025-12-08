@@ -50,6 +50,17 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     <PROJECT_KEY>-3208 <PROJECT_KEY>-3210
   ```
 
+- Update Jira issues (labels, summary, fields, assignee):
+  ```bash
+  python3 -m automation.cli.update_issue \
+    --add-label "oncall" \
+    --remove-label "backlog" \
+    --set-summary "New summary text" \
+    --set-field "Custom Field 1=Some value" \
+    --assignee "<accountId>" \
+    PROJ-123 PROJ-456
+  ```
+
 - Fetch a section or macro contents from Confluence (optionally across child pages):
   ```bash
   python3 -m automation.cli.confluence_content \
