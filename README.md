@@ -12,7 +12,7 @@ A simple structure for Jira automation scripts.
 The Jira client is now a lightweight REST wrapper built on `requests`; no external SDK is required.
 
 ## Setup
-- Install deps (only `requests`): `python3 -m venv .venv && source .venv/bin/activate && pip install requests`
+- Install deps: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
 - Configure credentials and defaults:
   - Copy `config.example.json` to `config.json` and fill in Jira URL, user, API token/password, timeout, project key, queue id, service desk id, default fields, grouping keywords, and status names.
   - Optionally point to a different file with `JIRA_CONFIG_FILE=/path/to/config.json`.
