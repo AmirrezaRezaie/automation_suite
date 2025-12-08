@@ -239,11 +239,20 @@ def main() -> int:
                     current_type = (issue.issue_type or "").lower()
                     if issue_type_normalized and current_type != issue_type_normalized:
                         skipped.append(key)
+                        print(f"[skip] {key} (type: {issue.issue_type or 'unknown'})")
                         continue
                     jira_service.update_labels(key, add=add_labels, remove=remove_labels)
                     successes.append(key)
+                    applied = []
+                    if add_labels:
+                        applied.append(f"add={','.join(add_labels)}")
+                    if remove_labels:
+                        applied.append(f"remove={','.join(remove_labels)}")
+                    detail = f" ({'; '.join(applied)})" if applied else ""
+                    print(f"[ok] {key}{detail}")
                 except IntegrationError as exc:
                     failures.append((key, str(exc)))
+                    print(f"[fail] {key}: {exc}", file=sys.stderr)
     except IntegrationError as exc:
         print(f"Failed to connect to Jira: {exc}", file=sys.stderr)
         return 1
