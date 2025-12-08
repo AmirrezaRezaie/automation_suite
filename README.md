@@ -24,6 +24,11 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
   export JIRA_PASSWORD="your-password"
   export JIRA_TIMEOUT="30"
   # optional: JIRA_PROJECT, JIRA_QUEUE_ID, JIRA_SERVICE_DESK_ID
+  export CONFLUENCE_BASE_URL="https://your-domain.atlassian.net/wiki"
+  export CONFLUENCE_USERNAME="your-username"
+  export CONFLUENCE_PASSWORD="your-api-token"
+  export CONFLUENCE_TIMEOUT="30"
+  # optional: CONFLUENCE_IS_PARENT, CONFLUENCE_MAX_CHILDREN, CONFLUENCE_MACROS
   ```
 - Run commands from the repo root. Prefer the module form so Python finds the package:
   `python3 -m automation.cli.<script> ...`
@@ -43,6 +48,15 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
   python3 -m automation.cli.transition_status \
     --target-status "Resolved" --only-status "Waiting for support" \
     <PROJECT_KEY>-3208 <PROJECT_KEY>-3210
+  ```
+
+- Fetch a section or macro contents from Confluence (optionally across child pages):
+  ```bash
+  python3 -m automation.cli.confluence_content \
+    --section "Call Center" \
+    --macro jira \
+    --is-parent \
+    https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/123456/Parent+Page
   ```
 
 Add `--help` to any script for all flags. All scripts are short and extensible; to add Confluence or other services, create a new service under `automation/`.

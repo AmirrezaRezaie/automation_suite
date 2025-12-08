@@ -5,6 +5,7 @@ import argparse
 import sys
 
 from automation.config import config_get, load_config, resolve_env_or_config
+from automation.exporters import get_exporter
 from automation.jira.client import IntegrationError, connect_jira
 from automation.jira.service import JiraService
 from automation.settings import JiraSettings
@@ -96,6 +97,17 @@ def parse_args(config: dict) -> argparse.Namespace:
         default=env_str("JIRA_LABEL_OTHER")
         or config_get(config, "defaults.label_other"),
         help="Display label for unmatched group (env: JIRA_LABEL_OTHER).",
+    )
+    parser.add_argument(
+        "--out-file",
+        default=env_str("JIRA_OUTPUT_FILE") or "output.txt",
+        help="Path to save results (default: %(default)s; env: JIRA_OUTPUT_FILE).",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["txt", "csv"],
+        default=(env_str("JIRA_OUTPUT_FORMAT") or "txt").lower(),
+        help="Output format: txt (default) or csv (env: JIRA_OUTPUT_FORMAT).",
     )
     return parser.parse_args()
 
@@ -190,6 +202,14 @@ def main() -> int:
         for entry in entries:
             primary_text = entry["primary_value"] or "<no value>"
             print(f"- {primary_text}")
+
+    exporter = get_exporter(
+        args.format,
+        args.out_file,
+        field_primary=field_primary,
+        field_secondary=field_secondary,
+    )
+    exporter.export(grouped=grouped, ordered_groups=ordered_groups)
 
     return 0
 

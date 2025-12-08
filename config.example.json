@@ -5,6 +5,17 @@
     "password": "your-api-token",
     "timeout": 30
   },
+  "confluence": {
+    "base_url": "https://your-domain.atlassian.net/wiki",
+    "username": "your-username",
+    "password": "your-api-token",
+    "timeout": 30,
+    "is_parent": false,
+    "max_children": 10,
+    "macros": [
+      "jira"
+    ]
+  },
   "defaults": {
     "project": "PROJECT",
     "queue_id": "123",
