@@ -232,6 +232,7 @@ def main() -> int:
                         current_type = (issue.issue_type or "").lower()
                         if current_type != issue_type_normalized:
                             skipped.append(key)
+                            print(f"[skip] {key} (type: {issue.issue_type or 'unknown'})")
                             continue
                     if field_updates:
                         service.update_fields(key, field_updates)
@@ -242,8 +243,10 @@ def main() -> int:
                     if assignee:
                         service.assign_issue(key, assignee)
                     successes.append(key)
+                    print(f"[ok] {key}")
                 except IntegrationError as exc:
                     failures.append((key, str(exc)))
+                    print(f"[fail] {key}: {exc}", file=sys.stderr)
     except IntegrationError as exc:
         print(f"Failed to connect to Jira: {exc}", file=sys.stderr)
         return 1
