@@ -57,8 +57,10 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     --remove-label "backlog" \
     --set-summary "New summary text" \
     --set-field "Custom Field 1=Some value" \
+    --epic-key "PROJ-1" \
     --assignee "<accountId>" \
     --issue-type "Sub-task" \
+    --jql "project = PROJ AND labels = oncall" \
     PROJ-123 PROJ-456
   ```
   You can predefine defaults in `config.json` under `defaults.update`:
@@ -68,14 +70,17 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
       "add_labels": ["oncall"],
       "remove_labels": ["backlog"],
       "fields": { "Custom Field 1": "Value" },
+      "epic_key": "PROJ-1",
+      "epic_field": "Epic Link",
       "summary": "Updated by automation",
       "assignee": "<accountId>",
-      "issue_type": "Sub-task"
+      "issue_type": "Sub-task",
+      "jql": "project = PROJ AND labels = oncall"
     }
   }
   ```
   Env overrides are supported:
-  `JIRA_UPDATE_ADD_LABELS`, `JIRA_UPDATE_REMOVE_LABELS`, `JIRA_UPDATE_FIELDS` (comma `KEY=VAL` list), `JIRA_UPDATE_SUMMARY`, `JIRA_UPDATE_ASSIGNEE`, `JIRA_UPDATE_ISSUE_TYPE`.
+  `JIRA_UPDATE_ADD_LABELS`, `JIRA_UPDATE_REMOVE_LABELS`, `JIRA_UPDATE_FIELDS` (comma `KEY=VAL` list), `JIRA_UPDATE_SUMMARY`, `JIRA_UPDATE_ASSIGNEE`, `JIRA_UPDATE_ISSUE_TYPE`, `JIRA_UPDATE_EPIC_KEY`, `JIRA_UPDATE_EPIC_FIELD`, `JIRA_UPDATE_JQL`.
 
 - Fetch a section or macro contents from Confluence (optionally across child pages):
   ```bash

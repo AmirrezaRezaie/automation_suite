@@ -114,6 +114,14 @@ def parse_args(config: dict) -> argparse.Namespace:
         help="Set a field by display name or field id (repeatable).",
     )
     parser.add_argument(
+        "--epic-key",
+        help="Set the epic link key (defaults to the 'Epic Link' field).",
+    )
+    parser.add_argument(
+        "--epic-field",
+        help="Field name/id used for epic links (default: Epic Link).",
+    )
+    parser.add_argument(
         "--assignee",
         help="Set assignee by accountId.",
     )
@@ -121,6 +129,16 @@ def parse_args(config: dict) -> argparse.Namespace:
         "--issue-type",
         dest="issue_type",
         help="Only update issues matching this issue type (e.g. Task, Sub-task).",
+    )
+    parser.add_argument(
+        "--jql",
+        help="JQL query to select issues (combined with provided keys/--file).",
+    )
+    parser.add_argument(
+        "--max-results",
+        type=int,
+        default=200,
+        help="Maximum number of issues to fetch from JQL (default: %(default)s).",
     )
     return parser.parse_args()
 
@@ -135,6 +153,9 @@ def main() -> int:
     default_summary = config_get(config, "defaults.update.summary")
     default_assignee = config_get(config, "defaults.update.assignee")
     default_issue_type = config_get(config, "defaults.update.issue_type")
+    default_epic_key = config_get(config, "defaults.update.epic_key")
+    default_epic_field = config_get(config, "defaults.update.epic_field")
+    default_jql = config_get(config, "defaults.update.jql")
 
     add_labels = _merge_labels(
         default_add_labels,
@@ -151,10 +172,15 @@ def main() -> int:
         env_str("JIRA_UPDATE_FIELDS"),
         args.fields,
     )
+    epic_key = args.epic_key or env_str("JIRA_UPDATE_EPIC_KEY") or default_epic_key
+    epic_field = args.epic_field or env_str("JIRA_UPDATE_EPIC_FIELD") or default_epic_field or "Epic Link"
+    if epic_key:
+        field_updates[epic_field] = epic_key
     summary = args.set_summary or env_str("JIRA_UPDATE_SUMMARY") or default_summary
     assignee = args.assignee or env_str("JIRA_UPDATE_ASSIGNEE") or default_assignee
     issue_type = args.issue_type or env_str("JIRA_UPDATE_ISSUE_TYPE") or default_issue_type
     issue_type_normalized = issue_type.lower() if issue_type else None
+    jql = args.jql or env_str("JIRA_UPDATE_JQL") or default_jql
 
     actions = any(
         [
@@ -174,7 +200,11 @@ def main() -> int:
         return 1
 
     try:
-        issue_keys = read_issue_keys(args.issues, args.file)
+        issue_keys = read_issue_keys(
+            args.issues,
+            args.file,
+            allow_empty=bool(jql),
+        )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -184,6 +214,13 @@ def main() -> int:
     try:
         with connect_jira(settings) as client:
             service = JiraService(client, settings.base_url)
+            if jql:
+                fetched = service.search_issue_keys(jql=jql, max_results=args.max_results)
+                if fetched:
+                    issue_keys = list(dict.fromkeys(issue_keys + fetched))
+            if not issue_keys:
+                print("No issue keys found to update.", file=sys.stderr)
+                return 1
             successes: list[str] = []
             failures: list[tuple[str, str]] = []
             skipped: list[str] = []

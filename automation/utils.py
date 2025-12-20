@@ -32,7 +32,12 @@ def extract_issue_key(raw: str) -> str | None:
     return match.group(0).upper() if match else None
 
 
-def read_issue_keys(values: Iterable[str], file_path: str | None = None) -> list[str]:
+def read_issue_keys(
+    values: Iterable[str],
+    file_path: str | None = None,
+    *,
+    allow_empty: bool = False,
+) -> list[str]:
     """Collect unique issue keys from CLI args, optional file, or piped stdin."""
     collected: list[str] = []
     if file_path:
@@ -56,5 +61,7 @@ def read_issue_keys(values: Iterable[str], file_path: str | None = None) -> list
         seen.add(key)
         keys.append(key)
     if not keys:
+        if allow_empty:
+            return []
         raise RuntimeError("No valid issue keys found. Provide URLs or keys.")
     return keys
