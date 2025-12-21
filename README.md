@@ -91,6 +91,11 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/123456/Parent+Page
   ```
 
+- Find a Jira field id by name:
+  ```bash
+  python3 -m automation.cli.jira_field_id "Report Related Team"
+  ```
+
 - Fetch Jira issues referenced in a Confluence macro and update labels:
   ```bash
   python3 -m automation.cli.confluence_labeler \

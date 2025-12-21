@@ -166,6 +166,11 @@ class JiraClient:
             self._field_id_by_name[name] = field_id
         return self._field_id_by_name.get(lowered)
 
+    def list_fields(self) -> list[dict]:
+        """Return all Jira fields."""
+        fields = self._request("GET", "/rest/api/2/field")
+        return list(fields) if isinstance(fields, list) else []
+
     def _request(self, method: str, path: str, **kwargs) -> dict | list:
         url = self._build_url(path)
         timeout = kwargs.pop("timeout", self.timeout)
