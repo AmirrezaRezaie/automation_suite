@@ -91,9 +91,25 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
     https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/123456/Parent+Page
   ```
 
+- Extract Confluence page objects (titles, headers, tables, macros) as JSON cache:
+  ```bash
+  python3 -m automation.cli.confluence_objects \
+    --is-parent \
+    --pretty \
+    --output confluence_cache.json \
+    https://your-domain.atlassian.net/wiki/spaces/SPACE/pages/123456/Parent+Page
+  ```
+
 - Find a Jira field id by name:
   ```bash
   python3 -m automation.cli.jira_field_id "Report Related Team"
+  ```
+
+- Sync Jira Report Related Team from Confluence child pages:
+  ```bash
+  python3 -m automation.cli.confluence_report_team_sync \
+    --is-parent \
+    464175603
   ```
 
 - Fetch Jira issues referenced in a Confluence macro and update labels:

@@ -5,12 +5,15 @@ from typing import Iterable, Sequence
 from xml.etree import ElementTree as ET
 
 from .client import ConfluenceClient, ConfluenceError
+from ..utils import extract_issue_key
 
 # Namespaces used by Confluence storage format
 NS_AC = "http://atlassian.com/content"
 NS_RI = "http://atlassian.com/resource/identifier"
 ET.register_namespace("ac", NS_AC)
 ET.register_namespace("ri", NS_RI)
+
+ISSUE_KEY_RE = re.compile(r"[A-Z][A-Z0-9]+-\d+", flags=re.IGNORECASE)
 
 
 def _wrap_storage(raw: str) -> str:
@@ -36,12 +39,16 @@ def _normalize_text(value: str | None) -> str:
     return " ".join(value.split()).strip()
 
 
+def _strip_tag(tag: str) -> str:
+    return tag.split("}", 1)[-1] if tag else ""
+
+
 def _iter_headings(root: ET.Element):
     heading_tags = {f"h{idx}" for idx in range(1, 7)}
     for parent in root.iter():
         children = list(parent)
         for index, child in enumerate(children):
-            tag = child.tag.split("}", 1)[-1]
+            tag = _strip_tag(child.tag)
             if tag.lower() not in heading_tags:
                 continue
             yield parent, index, child
@@ -86,6 +93,176 @@ def extract_macro_contents(storage: str, macro_name: str) -> list[str]:
             continue
         results.append(ET.tostring(node, encoding="unicode"))
     return results
+
+
+def _collect_issue_keys_from_text(raw: str) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+    for match in ISSUE_KEY_RE.findall(raw or ""):
+        key = match.upper()
+        if key in seen:
+            continue
+        seen.add(key)
+        keys.append(key)
+    return keys
+
+
+def _collect_issue_keys(values: Iterable[str]) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        if not raw:
+            continue
+        for token in re.split(r"[,\n;]+", raw):
+            key = extract_issue_key(token)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
+def _extract_headers(root: ET.Element) -> tuple[list[dict], list[dict]]:
+    titles: list[dict] = []
+    headers: list[dict] = []
+    for node in root.iter():
+        tag = _strip_tag(node.tag).lower()
+        if tag not in {f"h{idx}" for idx in range(1, 7)}:
+            continue
+        text = _normalize_text("".join(node.itertext()))
+        if not text:
+            continue
+        level = int(tag[1])
+        entry = {"level": level, "text": text}
+        if level == 1:
+            titles.append(entry)
+        else:
+            headers.append(entry)
+    return titles, headers
+
+
+def _merge_key_value(target: dict, key: str, value: str) -> None:
+    if key not in target:
+        target[key] = value
+        return
+    existing = target[key]
+    if existing == value:
+        return
+    if isinstance(existing, list):
+        existing.append(value)
+    else:
+        target[key] = [existing, value]
+
+
+def _extract_tables(root: ET.Element) -> list[dict]:
+    tables: list[dict] = []
+    for node in root.iter():
+        if _strip_tag(node.tag).lower() != "table":
+            continue
+        table_data = {
+            "headers": [],
+            "rows": [],
+            "key_value": {},
+            "raw": ET.tostring(node, encoding="unicode"),
+        }
+        for row in node.findall(".//tr"):
+            cells: list[str] = []
+            is_header_row = False
+            for cell in list(row):
+                cell_tag = _strip_tag(cell.tag).lower()
+                if cell_tag not in {"th", "td"}:
+                    continue
+                cells.append(_normalize_text("".join(cell.itertext())))
+                if cell_tag == "th":
+                    is_header_row = True
+            if not cells:
+                continue
+            if is_header_row and not table_data["headers"]:
+                table_data["headers"] = cells
+                continue
+            table_data["rows"].append(cells)
+        if table_data["rows"]:
+            for row in table_data["rows"]:
+                if len(row) < 2:
+                    continue
+                key = row[0]
+                value = row[1]
+                if key:
+                    _merge_key_value(table_data["key_value"], key, value)
+        tables.append(table_data)
+    return tables
+
+
+def _extract_macro_params(node: ET.Element) -> dict[str, str]:
+    params: dict[str, str] = {}
+    for param in node.findall("ac:parameter", {"ac": NS_AC}):
+        name = param.attrib.get(f"{{{NS_AC}}}name") or param.attrib.get("ac:name")
+        if not name:
+            continue
+        params[name.strip().lower()] = _normalize_text("".join(param.itertext()))
+    return params
+
+
+def _extract_macros(root: ET.Element) -> list[dict]:
+    macros: list[dict] = []
+    for node in root.findall(".//ac:structured-macro", {"ac": NS_AC}):
+        name = node.attrib.get(f"{{{NS_AC}}}name") or node.attrib.get("ac:name")
+        if not name:
+            continue
+        params = _extract_macro_params(node)
+        body = node.find("ac:rich-text-body", {"ac": NS_AC})
+        body_text = _normalize_text("".join(body.itertext())) if body is not None else ""
+        entry = {
+            "name": name,
+            "parameters": params,
+            "body_text": body_text,
+            "raw": ET.tostring(node, encoding="unicode"),
+        }
+        if name.lower() == "jira":
+            jql = []
+            for candidate in ("jql", "jqlquery"):
+                raw = params.get(candidate)
+                if raw:
+                    jql.append(raw)
+            issue_keys = _collect_issue_keys(params.values())
+            issue_keys.extend(
+                key for key in _collect_issue_keys_from_text(body_text) if key not in issue_keys
+            )
+            entry["jira"] = {
+                "issue_keys": issue_keys,
+                "jql": jql,
+            }
+        macros.append(entry)
+    return macros
+
+
+def extract_storage_objects(storage: str) -> dict:
+    root = _parse_storage(storage)
+    if root is None:
+        return {"titles": [], "headers": [], "tables": [], "macros": []}
+    titles, headers = _extract_headers(root)
+    return {
+        "titles": titles,
+        "headers": headers,
+        "tables": _extract_tables(root),
+        "macros": _extract_macros(root),
+    }
+
+
+def build_cache_payload(page: dict, objects: dict, *, base_url: str) -> dict:
+    version = page.get("version") or {}
+    return {
+        "page": {
+            "id": page.get("id"),
+            "title": page.get("title"),
+            "url": page_url(base_url, page),
+            "version": {
+                "number": version.get("number"),
+                "when": version.get("when"),
+            },
+        },
+        "objects": objects,
+    }
 
 
 def page_url(base_url: str, content: dict) -> str:
@@ -172,6 +349,18 @@ class ConfluenceService:
                     continue
                 data["macros"][name] = extract_macro_contents(storage, name)
         return data
+
+    def extract_page_objects(self, page: dict) -> dict:
+        storage = (
+            page.get("body", {}).get("storage", {}).get("value")  # type: ignore[call-arg]
+        )
+        if not storage:
+            return {"titles": [], "headers": [], "tables": [], "macros": []}
+        return extract_storage_objects(storage)
+
+    def build_cache_record(self, page: dict) -> dict:
+        objects = self.extract_page_objects(page)
+        return build_cache_payload(page, objects, base_url=self.base_url)
 
     def fetch_pages_with_content(
         self,
