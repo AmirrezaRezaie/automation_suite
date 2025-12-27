@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import requests
 from typing import Iterable, Sequence
 
@@ -70,6 +71,14 @@ class JiraService:
         for key in issue_keys:
             try:
                 issue = self.client.get_issue(key)
+                if os.getenv("JIRA_DEBUG_ASSIGNEE"):
+                    assignee = issue.fields.get("assignee")
+                    print(f"[debug] {key} fields.assignee={assignee!r}")
+                    if isinstance(assignee, dict):
+                        print(
+                            f"[debug] {key} fields.assignee keys="
+                            f"{sorted(assignee.keys())}"
+                        )
                 entry = {
                     "key": issue.key,
                     "url": issue_url(self.base_url, issue.key),

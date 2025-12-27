@@ -13,7 +13,6 @@ NS_RI = "http://atlassian.com/resource/identifier"
 ET.register_namespace("ac", NS_AC)
 ET.register_namespace("ri", NS_RI)
 
-ISSUE_KEY_RE = re.compile(r"[A-Z][A-Z0-9]+-\d+", flags=re.IGNORECASE)
 
 
 def _wrap_storage(raw: str) -> str:
@@ -95,22 +94,11 @@ def extract_macro_contents(storage: str, macro_name: str) -> list[str]:
     return results
 
 
-def _collect_issue_keys_from_text(raw: str) -> list[str]:
+def _collect_issue_keys_from_params(params: dict[str, str]) -> list[str]:
     keys: list[str] = []
     seen: set[str] = set()
-    for match in ISSUE_KEY_RE.findall(raw or ""):
-        key = match.upper()
-        if key in seen:
-            continue
-        seen.add(key)
-        keys.append(key)
-    return keys
-
-
-def _collect_issue_keys(values: Iterable[str]) -> list[str]:
-    keys: list[str] = []
-    seen: set[str] = set()
-    for raw in values:
+    for candidate_name in ["key", "issuekey", "issuekeys", "issues"]:
+        raw = params.get(candidate_name)
         if not raw:
             continue
         for token in re.split(r"[,\n;]+", raw):
@@ -122,9 +110,8 @@ def _collect_issue_keys(values: Iterable[str]) -> list[str]:
     return keys
 
 
-def _extract_headers(root: ET.Element) -> tuple[list[dict], list[dict]]:
+def _extract_headers(root: ET.Element) -> list[dict]:
     titles: list[dict] = []
-    headers: list[dict] = []
     for node in root.iter():
         tag = _strip_tag(node.tag).lower()
         if tag not in {f"h{idx}" for idx in range(1, 7)}:
@@ -136,9 +123,7 @@ def _extract_headers(root: ET.Element) -> tuple[list[dict], list[dict]]:
         entry = {"level": level, "text": text}
         if level == 1:
             titles.append(entry)
-        else:
-            headers.append(entry)
-    return titles, headers
+    return titles
 
 
 def _merge_key_value(target: dict, key: str, value: str) -> None:
@@ -160,10 +145,7 @@ def _extract_tables(root: ET.Element) -> list[dict]:
         if _strip_tag(node.tag).lower() != "table":
             continue
         table_data = {
-            "headers": [],
-            "rows": [],
             "key_value": {},
-            "raw": ET.tostring(node, encoding="unicode"),
         }
         for row in node.findall(".//tr"):
             cells: list[str] = []
@@ -177,19 +159,16 @@ def _extract_tables(root: ET.Element) -> list[dict]:
                     is_header_row = True
             if not cells:
                 continue
-            if is_header_row and not table_data["headers"]:
-                table_data["headers"] = cells
+            if is_header_row:
                 continue
-            table_data["rows"].append(cells)
-        if table_data["rows"]:
-            for row in table_data["rows"]:
-                if len(row) < 2:
-                    continue
-                key = row[0]
-                value = row[1]
-                if key:
-                    _merge_key_value(table_data["key_value"], key, value)
-        tables.append(table_data)
+            if len(cells) < 2:
+                continue
+            key = cells[0]
+            value = cells[1]
+            if key:
+                _merge_key_value(table_data["key_value"], key, value)
+        if table_data["key_value"]:
+            tables.append(table_data)
     return tables
 
 
@@ -210,13 +189,9 @@ def _extract_macros(root: ET.Element) -> list[dict]:
         if not name:
             continue
         params = _extract_macro_params(node)
-        body = node.find("ac:rich-text-body", {"ac": NS_AC})
-        body_text = _normalize_text("".join(body.itertext())) if body is not None else ""
         entry = {
             "name": name,
             "parameters": params,
-            "body_text": body_text,
-            "raw": ET.tostring(node, encoding="unicode"),
         }
         if name.lower() == "jira":
             jql = []
@@ -224,10 +199,7 @@ def _extract_macros(root: ET.Element) -> list[dict]:
                 raw = params.get(candidate)
                 if raw:
                     jql.append(raw)
-            issue_keys = _collect_issue_keys(params.values())
-            issue_keys.extend(
-                key for key in _collect_issue_keys_from_text(body_text) if key not in issue_keys
-            )
+            issue_keys = _collect_issue_keys_from_params(params)
             entry["jira"] = {
                 "issue_keys": issue_keys,
                 "jql": jql,
@@ -239,11 +211,10 @@ def _extract_macros(root: ET.Element) -> list[dict]:
 def extract_storage_objects(storage: str) -> dict:
     root = _parse_storage(storage)
     if root is None:
-        return {"titles": [], "headers": [], "tables": [], "macros": []}
-    titles, headers = _extract_headers(root)
+        return {"titles": [], "tables": [], "macros": []}
+    titles = _extract_headers(root)
     return {
         "titles": titles,
-        "headers": headers,
         "tables": _extract_tables(root),
         "macros": _extract_macros(root),
     }
@@ -355,7 +326,7 @@ class ConfluenceService:
             page.get("body", {}).get("storage", {}).get("value")  # type: ignore[call-arg]
         )
         if not storage:
-            return {"titles": [], "headers": [], "tables": [], "macros": []}
+            return {"titles": [], "tables": [], "macros": []}
         return extract_storage_objects(storage)
 
     def build_cache_record(self, page: dict) -> dict:

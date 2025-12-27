@@ -82,6 +82,16 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
   Env overrides are supported:
   `JIRA_UPDATE_ADD_LABELS`, `JIRA_UPDATE_REMOVE_LABELS`, `JIRA_UPDATE_FIELDS` (comma `KEY=VAL` list), `JIRA_UPDATE_SUMMARY`, `JIRA_UPDATE_ASSIGNEE`, `JIRA_UPDATE_ISSUE_TYPE`, `JIRA_UPDATE_EPIC_KEY`, `JIRA_UPDATE_EPIC_FIELD`, `JIRA_UPDATE_JQL`.
 
+- Copy a Jira field value into another field:
+  ```bash
+  python3 -m automation.cli.copy_issue_field \
+    --source-field "Custom Field A" \
+    --target-field "Custom Field B" \
+    --project PROJECT \
+    --issue-type "Sub-task" \
+    --dry-run
+  ```
+
 - Fetch a section or macro contents from Confluence (optionally across child pages):
   ```bash
   python3 -m automation.cli.confluence_content \
@@ -109,6 +119,8 @@ The Jira client is now a lightweight REST wrapper built on `requests`; no extern
   ```bash
   python3 -m automation.cli.confluence_report_team_sync \
     --is-parent \
+    --issue-type Task \
+    --dry-run \
     464175603
   ```
 
